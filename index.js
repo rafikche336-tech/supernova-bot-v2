@@ -1,10 +1,12 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys'
+import pkg from '@whiskeysockets/baileys'
+const makeWASocket = pkg.default
+const { useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore } = pkg
 import pino from 'pino'
 import express from 'express'
 
 const app = express()
-const PORT = process.env.PORT || 3000
-app.get('/', (req,res) => res.send('Supernova Bot V5 is Running 24/7 - 750h FREE'))
+const PORT = process.env.PORT || 10000
+app.get('/', (req,res) => res.send('Supernova Bot V5 is Running 24/7 - 750h FREE - Live!'))
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 
 const CATALOG_LINK = "https://wa.me/c/213560668145"
@@ -14,7 +16,10 @@ async function startBot() {
   const sock = makeWASocket({
     logger: pino({ level: 'silent' }),
     printQRInTerminal: true,
-    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) },
+    auth: { 
+      creds: state.creds, 
+      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) 
+    },
     browser: ["Supernova Bot", "Chrome", "1.0"]
   })
   sock.ev.on('creds.update', saveCreds)
@@ -22,9 +27,12 @@ async function startBot() {
     const { connection, lastDisconnect } = update
     if(connection === 'close') {
       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-      if(shouldReconnect) startBot()
+      if(shouldReconnect) {
+        console.log('Reconnecting...')
+        startBot()
+      }
     } else if(connection === 'open') {
-      console.log('✅ Bot connected! 24/7 on Render')
+      console.log('✅ Bot connected! 24/7 on Render - 750h FREE')
     }
   })
   sock.ev.on('messages.upsert', async ({ messages }) => {
