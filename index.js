@@ -1,56 +1,60 @@
-import pkg from '@whiskeysockets/baileys'
-const makeWASocket = pkg.default
-const { useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore } = pkg
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
 import pino from 'pino'
 import express from 'express'
 import qrcode from 'qrcode-terminal'
+import fs from 'fs'
 
 const app = express()
 const PORT = process.env.PORT || 10000
-app.get('/', (req,res) => res.send('<h1>Supernova Bot V5 Live - Scan QR in Logs</h1>'))
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+app.get('/', (req,res) => res.send('<h1>Supernova Bot V5 - QR READY</h1>'))
+app.listen(PORT, () => console.log('Server ON '+PORT))
 
-const CATALOG_LINK = "https://wa.me/c/213560668145"
+// حذف المجلد القديم الفاسد عند كل تشغيل
+if(fs.existsSync('./auth_info')) {
+  try { fs.rmSync('./auth_info', { recursive: true, force: true }); console.log('Cleared old auth'); } catch(e){}
+}
+
+const CATALOG = "https://wa.me/c/213560668145"
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('./auth_info')
   const sock = makeWASocket({
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
-    auth: { 
-      creds: state.creds, 
-      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) 
-    },
+    auth: state,
     browser: ["Supernova", "Chrome", "1.0"]
   })
+
   sock.ev.on('creds.update', saveCreds)
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr } = update
+
+  sock.ev.on('connection.update', async (u) => {
+    const { connection, lastDisconnect, qr } = u
     if(qr) {
-      console.log('========== QR CODE ==========')
+      console.log(' ')
+      console.log('=========== QR CODE - SCAN NOW ===========')
       qrcode.generate(qr, { small: true })
-      console.log('Scan this QR in 【entity-WhatsApp¦canonical_name=WhatsApp】 -> Linked Devices -> Link Device')
-      console.log('========== QR CODE ==========')
+      console.log('==========================================')
+      console.log('WhatsApp > Linked Devices > Link Device')
     }
     if(connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-      console.log('Connection closed, reconnecting:', shouldReconnect)
-      if(shouldReconnect) {
-        setTimeout(() => startBot(), 2000)
+      const code = lastDisconnect?.error?.output?.statusCode
+      console.log('Closed code:', code, 'Reason:', lastDisconnect?.error?.message)
+      if(code === DisconnectReason.loggedOut) {
+        if(fs.existsSync('./auth_info')) fs.rmSync('./auth_info', { recursive: true, force: true })
+        console.log('Logged out, cleared')
       }
-    } else if(connection === 'open') {
-      console.log('✅ Bot connected! 24/7 on Render - 750h FREE')
+      setTimeout(() => startBot(), 3000)
     }
+    if(connection === 'open') console.log('✅ CONNECTED 24/7!')
   })
+
   sock.ev.on('messages.upsert', async ({ messages }) => {
-    const msg = messages[0]
-    if (!msg.message || msg.key.fromMe) return
-    const from = msg.key.remoteJid
-    const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase()
-    if (text.includes('سلام') || text.includes('مرحبا') || text.includes('salam')) {
-      await sock.sendMessage(from, { text: `وعليكم السلام 🌟\nأهلاً بكم في وكالة Supernova\n\n📋 خدماتنا:\n• بوت PRO: 9,500 دج\n• متجر: 11,000 دج\n• صفحة هبوط: 5,000 دج\n\n🛒 كتالوجنا:\n${CATALOG_LINK}` })
-    } else if (text.includes('كتالوج') || text.includes('catalog')) {
-      await sock.sendMessage(from, { text: `🛒 كتالوج Supernova\n${CATALOG_LINK}` })
+    const m = messages[0]
+    if(!m.message || m.key.fromMe) return
+    const from = m.key.remoteJid
+    const txt = (m.message.conversation || m.message.extendedTextMessage?.text || "").toLowerCase()
+    if(txt.includes('سلام') || txt.includes('مرحبا')) {
+      await sock.sendMessage(from, { text: `🌟 Supernova\n🛒 ${CATALOG}` })
     }
   })
 }
